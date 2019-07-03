@@ -19,6 +19,62 @@ sudo cp src/bash_autocomplete /etc/bash_completion.d/<myprogram>
 source /etc/bash_completion.d/<myprogram>
 cmd foobar -s -o
 cmd foobar -so
+
+
+go build -o hello
+./hello --name Clipher
+go build -o app
+./app -h
+./app -p=8080 -x
+./app -p8080 -x=true
+./app --port=8080, y=true
+./app --port=8080 -xy
+./app --port 8080 -yx
+
+go build -o app
+./app
+./app --id=2
+
+go build -o app
+./app -h
+./app
+BASE_PORT=8000 ./app --basic=3
+
+go build -o app
+./app
+./app -FAlice -FBob -F Charlie
+
+
+go build -o app
+./app
+./app -Dx=not-a-number
+./app -Dx=1 -D y=2
+
+go build -o app
+./app
+./app -v
+
+
+go build -o app
+./app help
+./app --name 123
+./app child --name=123
+./app chd
+
+go build -o app
+./app -h
+
+go build -o app
+./app --age=-1
+./app --age=1000
+./app -g balabala
+./app --age 88 --gender female
+
+
+
+
+
+
 ```
 
 ```go
@@ -1063,4 +1119,311 @@ app := cli.New("git tool").
   
 os.Exit(app.Run(os.Args, os.Stdout))
 ```
+
+```go
+package main
+
+import (
+  "os"
+  
+  "github.com/mkideal/cli"
+)
+
+type argT struct {
+  Name string `cli:"name" usage:"tell me your name"`
+}
+
+func main() {
+  os.Exit(cli.Run(new(argT), func(ctx *cli.Context) error {
+    argv := ctx.Argv().(*argT)
+    ctx.String("Hello, %s!\n", argv.Name)
+    return nil
+  }))
+}
+
+
+package main
+
+import (
+  "os"
+  
+  "github.com/mkideal/cli"
+)
+
+type argT struct {
+  cli.Helper
+  Port int `cli:"p,port" usage:"short and long format flags both are supported"`
+  X bool `cli:"x" usage:"boolean type"`
+  Y bool `cli:"y" usage:"boolean type, too"`
+}
+
+func main() {
+  os.Exit(cli.Run(new(argT), func(ctx *cli.Context) error {
+    argv := ctx.Argv().(*argT)
+    ctx.String("port=%d, x=%v, y=%v\n", argv.Port, argv.X, argv.Y)
+    return nil
+  }))
+}
+
+
+package main
+
+import (
+  "os"
+  
+  "github.com/mkideal/cli"
+)
+
+type argT struct {
+  cli.Helper
+  Id uint8 `cli:"*id" usage:"this is a require flag, note the *"`
+}
+
+func main() {
+  os.Exit(cli.Run(new(argT), func(ctx *cli.Context) error {
+    argv := ctx.Argv().(*argT)
+    ctx.String("%d\n", argv.Id)
+    return nil
+  }))
+}
+
+
+package main
+
+import (
+  "os"
+  
+  "github.com/mkideal/cli"
+)
+
+type argT struct {
+  cli.Helper
+  Basic int `cli:"basic" usage:"basic usage of default" dft:"2"`
+  Env string `cli:"env variable as default" dft:"$HOME"`
+  Expr int `cli:"expr" usage:"expression as default" dft:"$BASE_PORT+1000"`
+  DevDir string `cli:"devdir" usage:"directory of develper" dft:"$HOME/dev"`
+}
+
+func main() {
+  os.Exit(cli.Run(argT), func(ctx *cli.Context) error {
+    argv := ctx.Argv().(*argT)
+    ctx.String("%d, %s, %d, %s\n", argv.Basic, argv.Env, argv.Expr, argv.DevDir)
+    return nil
+  })
+}
+
+package main
+
+import (
+  "os"
+  
+  "github.com/mkideal/cli"
+)
+
+type argT struct {
+  Friends []string `cli:"F" usage:"my friends"`
+}
+
+func main() {
+  os.Exit(cli.Run(new(argT), func(ctx *cli.Context) error {
+    ctx.JSONln(ctx.Argv())
+    return nil
+  }))
+}
+
+package main
+
+import (
+  "os"
+  
+  "github.com/mkideal/cli"
+)
+
+type argT struct {
+  Macros map[string]int `cli:"D" usage:"define macros"`
+}
+
+func main() {
+  os.Exit(cli.Run(new(argT), func(ctx *cli.Context) error {
+    ctx.JSONln(ctx.Argv())
+    return nil
+  }))
+}
+
+
+package main
+
+import (
+  "os"
+  
+  "github.com/mkideal/cli"
+)
+
+type argT struct {
+  Version bool `cli:"!v" usage:"force flag, note the !"`
+  Required int `cli:"*r" usage:"required flag"`
+}
+
+func main() {
+  os.Exit(cli.Run(new(argT), func(ctx *cli.Context) error {
+    argv := ctx.Argv().(*argT)
+    if argv.Version {
+      ctx.String("v0.0.1\n")
+    }
+    return nil
+  }))
+}
+
+
+package main
+
+import (
+  "fmt"
+  "os"
+  
+  "github.com/mkideal/cli"
+)
+
+func main() {
+  if err := cli.Root(root,
+    cli.Tree(help),
+    cli.Tree(child),
+  ).Run(os.Args[1:]); err != nil {
+    fmt.Fprintln(os.Stderr, err)
+    os.Exit(1)
+  }
+}
+var help = cli.HelpCommand("display help information")
+
+type rootT struct {
+  cli.Helper
+  Name string `cli:"name" usage:"your name"`
+}
+
+var root = &cli.Command{
+  Desc: "this is root command",
+  Argv: func() interface{} { return new(rootT) },
+  Fn: func(ctx *cli.Context) error {
+    argv := ctx.Argv().(*rootT)
+    ctx.String("Hello, root command, I am %s\n", argv.Name)
+    return nil
+  },
+}
+type childT struct {
+  cli.Helper
+  Name string `cli:"name" usage:"your name"`
+}
+var child = &cli.Command{
+  Name: "child",
+  Desc: "this is a child command",
+  Argv: func() interface{} { return new(childT) },
+  Fn: func(ctx *cli.Context) error {
+    argv := ctx.Argv().(*childT)
+    ctx.String("Hello, child command, I am %s\n", argv.Name)
+    return nil
+  },
+}
+
+
+package main
+
+import (
+  "os"
+  
+  "github.com/mkideal/cli"
+)
+
+type argT struct {
+  Help bool `cli:"h,help" usage:"show help"`
+}
+
+func (argv *argT) AutoHelp() bool {
+  reutrn argv.Help
+}
+
+func main() {
+  os.Exit(cli.Run(new(argT), func(ctx, *cli.Context) error {
+    return nil
+  }))
+}
+
+package main
+
+import (
+  "fmt"
+  "os"
+  
+  "github.com/mkideal/cli"
+)
+
+type argT struct {
+  cli.Helper
+  Age int `cli:"age" usage:"our age"`
+  Gender string `cli:"g,gender" usage:"your gender" dft:"male"`
+}
+
+func (argv *argT) Validate(ctx *cli.Context) error {
+  if argv.Age < 0 || argv.Age > 300 {
+    return fmt.Errorf("age %d out of range", argv.Age)
+  }
+  if argv.Gender != "male" && argv.Gender != "female" {
+    return fmt.Errorf("invalid gender %s", ctx.Color().Yellow(argv.Gender))
+  }
+  return nil
+}
+
+func main() {
+  os.Eixt(cli.Run(new(argT), func(ctx * cli.Context) error {
+    ctx.JSONln(ctx.Argv())
+    return nil
+  }))
+}
+
+
+package main
+
+import (
+  "os"
+  
+  "github.com/mkideal/cli"
+)
+
+type argT struct {
+  cli.Helper
+  Username string `cli:"u,username" usage:"github account" prompt:"type github account"`
+  Password string `pw:"p,password" usage:"password of github account" prompt:"type the password"`
+}
+
+func main() {
+  os.Exit(cli.Run(new(argT), func(ctx *cli.Context) error {
+    argv := ctx.Argv().(*argT)
+    ctx.String("username=%s, password=%s\n", argv.Username, argv.Password)
+    return nil
+  }))
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```
+
 
