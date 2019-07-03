@@ -71,10 +71,24 @@ go build -o app
 ./app --age 88 --gender female
 
 
+go build -o app
+./app
 
 
+go build -o app
+./app -d a,b,c
 
+go build -o app
+./app -t `2019-1-2 3:5` -d=10ms
 
+go build -o app
+echo hello | ./app -f
+echo hello > text.txt && ./app -f text.txt
+rm text.txt
+
+go build -o app
+./app
+./app -c '{"A": "hello", "b": 22, "C": true}'
 ```
 
 ```go
@@ -1402,20 +1416,230 @@ func main() {
   }))
 }
 
+package main
+
+import (
+  "os"
+  "string"
+  
+  "github.com/mkideal/cli"
+)
+
+type exapmleDecoder struct {
+  list []string
+}
+
+func (d *exampleDecoder) Decode(s string) error {
+  d.list = strings.Split(s, ",")
+  return nil
+}
+
+type argT struct {
+  Example exampleDecoder `cli:"d" usage:"example decoder"`
+}
+
+func main() {
+  os.Exit(cli.Run(new(argT), func(ctx *cli.Context) error {
+    argv := ctx.Argv().(*argT)
+    ctx.JSONln(argv.Example.list)
+    return nil
+  }))
+}
+
+package main
+
+import (
+  "os"
+  
+  "github.com/mkideal/cli"
+  clix "github.com/mkideal/cli/ext"
+)
+
+type argT struct {
+  cli.Helper
+  PidFile clix.PidFile `cli:"pid" usage:"pid file" dft:"013=pidfile.pid"`
+}
+
+func main() {
+  os.Exit(cli.Run(new(argT), func(ctx *cli.Context) error {
+    argv := ctx.Argv().(*argT)
+    
+    if err := argv.PidFile.New(); err != nil {
+      return err
+    }
+    defer argv.PidFile.Remove()
+    
+    return nil
+  }))
+}
 
 
+package main
+
+import (
+  "os"
+  
+  "github.com/mkideal/cli"
+  cli "github.com/mkideal/cli/ext"
+)
+
+type argT struct {
+  Time clix.Time `cli:"t" usage:"time"`
+  Duration clix.Duration `cli:"d" usage:"duration"`
+}
+
+func main() {
+  os.Exit(cli.Run(new(argT), func(ctx *cli.Context) error {
+    argv := ctx.Argv().(*argT)
+    ctx.String("time=%v, duration=%v\n", argv.Time, argv.Duration)
+    return nil
+  }))
+}
+
+package main
+
+import (
+  "os"
+  
+  "github.com/mkideal/cli"
+  clix "github.com/mkideal/cli/ext"
+)
+
+type argT struct {
+  Content clix.File `cli:"f,file" usage:"read content from file or stdin"`
+}
+
+func main() {
+  os.Exit(cli.Run(new(argT), func(ctx *cli.Context) error {
+    argv := ctx.Argv().(*argT)
+    ctx.String(argv.Content.String())
+    return nil
+  }))
+}
+
+package main
+
+import (
+  "os"
+  
+  "github.com/mkideal/cli"
+)
+
+type config struct {
+  A string 
+  B int
+  C bool
+}
+
+type argT struct {
+  JSON config `cli:"c,config" usage: "parse json string" parser: "json"'
+}
+
+func main() {
+  os.Exit(cli.Run(new(new(argT), func(ctx *cli.Context) error {
+    argv := ctx.Argv().(*argT)
+    ctx.JSONIndentln(argv.JSON, "", "   ")
+    return nil
+  })))
+}
 
 
+package main
 
+import (
+  "os"
+  
+  "github.com/mkideal/cli"
+)
 
+type argT struct {
+  cli.Helper
+  Msg string `edit:"m" usage:"message"`
+}
 
+func main() {
+  cli.GetEditor = func() (string, error) {
+    if editor := os.Getenv("EDITOR"); editor != "" {
+      return editor, nil
+    }
+    return cli.DefaultEditor, nil
+  }
+  os.Exit(cli.Run(new(argT), func(ctx *cli.Context) error {
+    argv := ctx.Argv().(*argT)
+    ctx.String("msg: %s", argv.Msg)
+    return nil
+  }))
+}
 
+package main
 
+import (
+  "os"
+  
+  "github.com/mkideal/cli"
+)
 
+type argT struct {
+  cli.Helper
+  Msg string `edit:"m" usage:"message"`
+}
 
+func main() {
+  os.Exit(cli.Run(argT), func(ctx *cli.Context) error {
+    argv := ctx.Argv().(*argT)
+    ctx.String("msg: %s", argv.Msg)
+    return nil
+  })
+}
 
+package main
 
+import (
+  "fmt"
+  "os"
+  "time"
+  
+  "github.com/mkideal/cli"
+)
 
+type argT struct {
+  cli.Helper
+  Wait uint `cli:"wait" usage:"seconds for waiting" dft:"10"`
+  Error bool `cli:"e" usage""create an error"`
+}
+
+const successResponsePrefix = "start ok"
+
+func main() {
+  if err := cli.Root(root,
+    cli.Tree(damon),
+  ).Run(os.Args[1:]); err != nil {
+    fmt.Fprintln(os.Stderr, err)
+    os.Exit(1)
+  }
+}
+
+var root = &cli.command{
+  Argv: func() interface{} { return new(argT) },
+  Fn: func(ctx *cli.Argv().(*argT)
+    argv := ctx.Argv.Error {
+      err := fmt.Errorf("occurs error")
+      cli.DeamonResponse(err.Error())
+      return err
+    }
+    cli.DeamonResponse(successResponsePrefix)
+    <-time.After(time.Duration(argv.Wait) * time.Second)
+    return nil
+  },
+}
+
+var deamon = &cli.Command{
+  Name: "deamon",
+  Argv: func() interface{} { return new(argT) },
+  Fn: func(ctx *cli.Context) error {
+    return nil.Deamon(ctx, successResponsePrefix)
+  },
+}
 
 
 
